@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import HeaderXuchil from "@/components/HeaderXuchil";
 import BottomButton from "@/components/BottomButton";
 import styles from "./TemplateSelect.module.css";
 
@@ -51,7 +50,9 @@ const TemplateSelectPage = () => {
       const detailed: TemplateOption[] = await Promise.all(
         list.map(async (tpl: any) => {
           let stepCount = 0;
-          const detailRes = await fetch(`/api/process-templates/${tpl.id}`, { credentials: "include" });
+          const detailRes = await fetch(`/api/process-templates/${tpl.id}`, {
+            credentials: "include",
+          });
           if (detailRes.ok) {
             const detail = await detailRes.json();
             stepCount = (detail.templateSteps || []).length;
@@ -89,7 +90,6 @@ const TemplateSelectPage = () => {
   if (loading) {
     return (
       <div className="page">
-        <HeaderXuchil />
         <p>Cargando procesos...</p>
       </div>
     );
@@ -98,7 +98,6 @@ const TemplateSelectPage = () => {
   if (templates.length === 0) {
     return (
       <div className="page">
-        <HeaderXuchil />
         <div className={styles.container}>
           <h1>{variantName || "Producto"}</h1>
           <p className={styles.emptyText}>
@@ -115,7 +114,6 @@ const TemplateSelectPage = () => {
 
   return (
     <div className="page">
-      <HeaderXuchil />
       <h1>{`Elige el proceso a ejecutar${variantName ? `: ${variantName}` : ""}`}</h1>
       <div className={styles.container}>
         {templates.map((tpl) => {
@@ -129,12 +127,16 @@ const TemplateSelectPage = () => {
               <div className={styles.info}>
                 <span className={styles.name}>{tpl.name}</span>
                 <span className={styles.meta}>
-                  {`Versión ${tpl.version} · ${tpl.stepCount} ${tpl.stepCount === 1 ? "paso" : "pasos"}`}
+                  {`Versión ${tpl.version} · ${tpl.stepCount} ${
+                    tpl.stepCount === 1 ? "paso" : "pasos"
+                  }`}
                   {tpl.stepCount === 0 ? " · sin pasos definidos" : ""}
                 </span>
               </div>
               <span
-                className={`${styles.badge} ${tpl.isActive ? styles.activeBadge : styles.inactiveBadge}`}
+                className={`${styles.badge} ${
+                  tpl.isActive ? styles.activeBadge : styles.inactiveBadge
+                }`}
               >
                 {tpl.isActive ? "Activa" : "Inactiva"}
               </span>

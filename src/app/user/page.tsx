@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Pencil, ChevronRight } from "lucide-react";
 import Button from "@/components/Button";
-import HeaderXuchil from "@/components/HeaderXuchil";
 import Modal from "@/components/Modal";
 import styles from "./User.module.css";
 
@@ -40,7 +40,7 @@ const UserProfile = () => {
         setUserData({
           name: authUser.worker?.fullName ?? "",
           email: authUser.email,
-          phone: authUser.worker?.phone ?? "No especificado",
+          phone: authUser.worker?.phone ?? "",
           avatar: authUser.worker?.profilePhotoUrl ?? "",
           position: authUser.worker?.role?.name ?? "Operador",
           expiresAt: authUser.worker?.expiresAt ?? null,
@@ -65,74 +65,102 @@ const UserProfile = () => {
 
   if (!role || !userData) return null;
 
+  const iniciales = (userData.name || userData.email || "?")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p: string) => p.charAt(0).toUpperCase())
+    .join("");
+
   return (
-    <div className={`page ${styles.pageWrapper}`}>
-      <HeaderXuchil />
+    <div className={styles.wrapper}>
+      <header className={styles.head}>
+        <h1 className={styles.title}>Perfil de usuario</h1>
 
-      <div className={styles.actionButtonRight}>
-        <Button
-          size="small"
-          action="secondary"
-          onClick={() => router.push("/edit_user")}
-        >
-          Editar
-        </Button>
-      </div>
-
-      <div className={styles.headerContainer}>
-        <h1>Perfil de usuario</h1>
-      </div>
-
-      <div className={styles.contentWrapper}>
-        <div className={styles.profileCard}>
-          <img
-            className={styles.avatar}
-            src={userData.avatar || "/globe.svg"}
-            alt="Avatar del usuario"
-          />
-
-          <h2 className={styles.profileName}>{userData.name}</h2>
-          <p className={styles.profilePosition}>{userData.position}</p>
-          {userData.expiresAt && (
-            <p className={styles.profileHours}>
-              Vigencia: {new Date(userData.expiresAt).toLocaleDateString("es-MX")}
-            </p>
-          )}
-          <p className={styles.profileHours}>{userData.hours}</p>
-
-          <div className={styles.infoGroup}>
-            <p className={styles.infoLabel}>Correo electrónico:</p>
-            <p className={styles.infoValue}>{userData.email}</p>
-
-            <p className={styles.infoLabel}>Teléfono:</p>
-            <p className={styles.infoValue}>{userData.phone}</p>
-          </div>
-        </div>
-
-        {/* Panel de administración simplificado (Solo Admin) */}
-        {role === "admin" && (
-          <div style={{ marginTop: "20px", width: "100%", maxWidth: "420px" }}>
-            <Button
-              size="regular"
-              action="primary"
-              onClick={() => router.push("/create_user")}
-              style={{ width: "100%" }}
-            >
-              Administrar y Crear Usuarios
-            </Button>
-          </div>
-        )}
-
-        <div className={styles.logoutWrapper}>
+        <div className={styles.editBtn}>
           <Button
-            size="regular"
-            action="negative"
-            onClick={() => setShowLogoutModal(true)}
+            size="small"
+            action="outline"
+            onClick={() => router.push("/edit_user")}
           >
-            Cerrar sesión
+            <Pencil size={15} />
+            Editar
           </Button>
         </div>
-      </div>
+      </header>
+
+      <section className={styles.card}>
+        <div className={styles.identity}>
+          {userData.avatar ? (
+            <img
+              className={styles.avatar}
+              src={userData.avatar}
+              alt={`Foto de ${userData.name}`}
+            />
+          ) : (
+            <span className={styles.avatarFallback} aria-hidden="true">
+              {iniciales}
+            </span>
+          )}
+
+          <div className={styles.identityText}>
+            <h2 className={styles.name}>{userData.name}</h2>
+            {!!userData.position && (
+              <p className={styles.position}>{userData.position}</p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.card}>
+        <div className={styles.infoRow}>
+          <p className={styles.infoLabel}>Correo electrónico</p>
+          <p className={styles.infoValue}>{userData.email}</p>
+        </div>
+
+        <div className={styles.infoRow}>
+          <p className={styles.infoLabel}>Teléfono</p>
+          {userData.phone ? (
+            <p className={styles.infoValue}>{userData.phone}</p>
+          ) : (
+            <button
+              type="button"
+              className={styles.infoAdd}
+              onClick={() => router.push("/edit_user")}
+            >
+              Agregar
+            </button>
+          )}
+        </div>
+
+        {userData.expiresAt && (
+          <div className={styles.infoRow}>
+            <p className={styles.infoLabel}>Vigencia</p>
+            <p className={styles.infoValue}>
+              {new Date(userData.expiresAt).toLocaleDateString("es-MX")}
+            </p>
+          </div>
+        )}
+      </section>
+
+      {role === "admin" && (
+        <button
+          type="button"
+          className={styles.menuRow}
+          onClick={() => router.push("/create_user")}
+        >
+          <span className={styles.menuText}>Gestión de usuarios</span>
+          <ChevronRight size={18} className={styles.menuChevron} />
+        </button>
+      )}
+
+      <button
+        type="button"
+        className={styles.logout}
+        onClick={() => setShowLogoutModal(true)}
+      >
+        Cerrar sesión
+      </button>
 
       <Modal
         open={showLogoutModal}

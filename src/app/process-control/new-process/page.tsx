@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import HeaderXuchil from "@/components/HeaderXuchil";
 import Button from "@/components/Button";
 import Modal from "@/components/Modal";
 import styles from "./NewProcess.module.css";
@@ -428,8 +427,6 @@ const NewProcessPage = () => {
 
   return (
     <div className={`page ${styles.pageWrapper}`}>
-      <HeaderXuchil />
-
       <div className={styles.headerContainer}>
         <h1>Crear nuevo proceso</h1>
         <p>Define la información base y los pasos del flujo. Las materias primas se asignan al paso que las consume.</p>

@@ -2,9 +2,9 @@
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import React, { useState, useEffect, useCallback, Suspense } from "react";
-import HeaderXuchil from "@/components/HeaderXuchil";
-import Chronometer from "@/components/Chronometer";
+import StepRow from "@/components/StepRow";
 import BottomButton from "@/components/BottomButton";
+import runStyles from "../ProcessRun.module.css";
 import styles from "./ProcessStep.module.css";
 import { ProcessStep } from "@/types/ProcessStep";
 import { ProductVariant } from "@/types/ProductVariant";
@@ -28,7 +28,7 @@ const ProcessStepPage = () => {
   const [, setStepExecutionId] = useState<number | null>(null);
   const [processRunId, setProcessRunId] = useState<number | null>(null);
   const [stepStatus, setStepStatus] = useState<string>("PENDING");
-  const [initialTime, setInitialTime] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
   const [templateId, setTemplateId] = useState<number | null>(null);
 
   // Reservation / consumption state
@@ -175,12 +175,18 @@ const ProcessStepPage = () => {
                 const overlapEnd = Math.min(nowMs, pe);
                 if (overlapEnd > overlapStart) pausedMs += overlapEnd - overlapStart;
               }
-              const elapsed = Math.max(0, Math.floor((nowMs - startedMs - pausedMs) / 1000));
-              setInitialTime(elapsed);
+              const computedElapsed = Math.max(0, Math.floor((nowMs - startedMs - pausedMs) / 1000));
+              setElapsed(computedElapsed);
               setHasStarted(true);
+            } else {
+              setElapsed(0);
+              setHasStarted(false);
             }
           }
         }
+      } else {
+        setElapsed(0);
+        setHasStarted(false);
       }
 
       if (!mounted) return;
@@ -222,6 +228,14 @@ const ProcessStepPage = () => {
     };
   }, [productId, variantId, stepId, templateIdParam]);
 
+  useEffect(() => {
+    if (!hasStarted || stepStatus !== "IN_PROGRESS") return;
+    const timer = window.setInterval(() => {
+      setElapsed((prev) => prev + 1);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [hasStarted, stepStatus]);
+
   const callStepActionDirect = async (execId: number, action: string, body?: object) => {
     try {
       const opts: RequestInit = {
@@ -252,23 +266,29 @@ const ProcessStepPage = () => {
   }, []);
 
   const templateNeedsMaterials = steps.some((s) => (s.materials?.length ?? 0) > 0);
-  // The run has begun once any step has been started/finished. Tie the
-  // reservation prompt to whether the run actually holds reservations (not to
-  // the mere existence of a stepExecution), so a half-created PLANNED run from a
-  // failed reservation still asks to reserve instead of silently running
-  // without apartar/consumir materia prima.
   const runStarted =
     stepStatus === "IN_PROGRESS" || stepStatus === "BLOCKED" || stepStatus === "DONE" || hasStarted;
   const needsReservation =
     !runHasReservations && !runStarted && templateNeedsMaterials && stepIndex === 0;
   const currentStepHasMaterials = (currentStep?.materials?.length ?? 0) > 0;
 
-  // Build the consumption body for a step from a quantity map keyed by rawMaterialId.
   const consumeBody = (step: ProcessStep, qtyByMaterial: Record<number, number>) => {
     const materials = (step.materials ?? [])
-      .map((m) => ({ rawMaterialId: m.rawMaterialId, qty: qtyByMaterial[m.rawMaterialId] ?? m.qtyPerUnitOutput, unitId: m.unitId }))
+      .map((m) => ({
+        rawMaterialId: m.rawMaterialId,
+        qty: qtyByMaterial[m.rawMaterialId] ?? m.qtyPerUnitOutput,
+        unitId: m.unitId,
+      }))
       .filter((m) => m.qty > 0);
     return materials.length ? { materials } : undefined;
+  };
+
+  const reserveStepQty = (step: ProcessStep): Record<number, number> => {
+    const map: Record<number, number> = {};
+    for (const m of step.materials ?? []) {
+      map[m.rawMaterialId] = reserveQty[`${step.id}:${m.rawMaterialId}`] ?? m.qtyPerUnitOutput;
+    }
+    return map;
   };
 
   const handleReserve = async () => {
@@ -276,10 +296,6 @@ const ProcessStepPage = () => {
     setPanelError(null);
     setReserving(true);
     try {
-      // Reuse the PLANNED run if one already exists (e.g. a previous reservation
-      // attempt failed and left it behind); only create a new run otherwise.
-      // This prevents orphan runs from piling up and the "no se pudo crear el
-      // proceso" error when a run is already in place.
       let runId = processRunId;
       let createdStepExecs: any[] | null = null;
       if (!runId) {
@@ -300,7 +316,6 @@ const ProcessStepPage = () => {
         setProcessRunId(newRun.id);
       }
 
-      // Reserve materials for EVERY step up front (not just the first one).
       const items: Array<{ templateStepId: number; rawMaterialId: number; qty: number; unitId: number }> = [];
       for (const s of steps) {
         for (const m of s.materials ?? []) {
@@ -326,8 +341,6 @@ const ProcessStepPage = () => {
         }
       }
 
-      // Run in place and everything reserved. Leave the first step PENDING; the
-      // user starts it manually with INICIAR (consuming only that step then).
       if (createdStepExecs) {
         const stepExec = createdStepExecs[stepIndex];
         if (stepExec) {
@@ -345,24 +358,12 @@ const ProcessStepPage = () => {
     }
   };
 
-  // Reserved quantities for a step, keyed by rawMaterialId, taken from reserveQty.
-  const reserveStepQty = (step: ProcessStep): Record<number, number> => {
-    const map: Record<number, number> = {};
-    for (const m of step.materials ?? []) {
-      map[m.rawMaterialId] = reserveQty[`${step.id}:${m.rawMaterialId}`] ?? m.qtyPerUnitOutput;
-    }
-    return map;
-  };
-
   if (loadError) {
     return (
       <div className="page">
-        <HeaderXuchil />
         <div className={styles.container}>
           <h2>{loadError}</h2>
-          <BottomButton onClick={() => router.back()}>
-            Volver
-          </BottomButton>
+          <BottomButton onClick={() => router.back()}>Volver</BottomButton>
         </div>
       </div>
     );
@@ -371,7 +372,6 @@ const ProcessStepPage = () => {
   if (!currentStep) {
     return (
       <div className="page">
-        <HeaderXuchil />
         <p>Cargando información del proceso...</p>
       </div>
     );
@@ -380,7 +380,6 @@ const ProcessStepPage = () => {
   const handleChronometerStart = async () => {
     setHasStarted(true);
 
-    // No run yet and template without materials: create the run and start (legacy path).
     if (!stepExecIdRef.current && templateId) {
       try {
         const numericVariantId = parseInt(variantId as string, 10);
@@ -428,16 +427,25 @@ const ProcessStepPage = () => {
     setStepStatus("IN_PROGRESS");
   };
 
+  const handleToggleRunning = () => {
+    if (!hasStarted || stepStatus === "PENDING") {
+      void handleChronometerStart();
+    } else if (stepStatus === "IN_PROGRESS") {
+      handlePause();
+    } else {
+      handleResume();
+    }
+  };
+
   const handleNextStep = async () => {
-    // Stop the chronometer immediately
     setStepStatus("DONE");
-    // Call finish - API handles both IN_PROGRESS and BLOCKED states
     await callStepAction("finish");
-    // Navigate forward, preserving the chosen template across steps.
     const templateQuery = templateId ? `?templateId=${templateId}` : "";
     const nextPosition = stepIndex + 2;
     if (stepIndex < steps.length - 1) {
-      router.push(`/process-control/new-production/${productId}/${variantId}/${nextPosition}${templateQuery}`);
+      router.push(
+        `/process-control/new-production/${productId}/${variantId}/${nextPosition}${templateQuery}`
+      );
     } else {
       const route = processRunId
         ? `/process-control/new-production/${productId}/${variantId}/results?runId=${processRunId}`
@@ -446,13 +454,27 @@ const ProcessStepPage = () => {
     }
   };
 
+  const upcoming = steps.slice(stepIndex + 1);
+  const done = steps.slice(0, stepIndex);
+  const overallPct = (stepIndex / steps.length) * 100;
+
   return (
     <div className="page">
-      <HeaderXuchil />
-      <div className={styles.container}>
-        <h1>{`Elaboración de ${currentVariant?.name}`}</h1>
-        <h2>{`Paso ${stepIndex + 1} de ${steps.length}: ${currentStep.title}`}</h2>
-        <p>{`${currentStep.description}`}</p>
+      <div className={runStyles.container}>
+        <header className={runStyles.head}>
+          <h1 className={runStyles.processTitle}>
+            {currentVariant?.name ? `Elaboración de ${currentVariant.name}` : "Proceso"}
+          </h1>
+          <div className={runStyles.overall}>
+            <div
+              className={runStyles.overallFill}
+              style={{ width: `${overallPct}%` }}
+            />
+          </div>
+          <p className={runStyles.overallLabel}>
+            {stepIndex} de {steps.length} pasos terminados
+          </p>
+        </header>
 
         {needsReservation ? (
           <div className={styles.panel}>
@@ -515,22 +537,42 @@ const ProcessStepPage = () => {
               </div>
             )}
 
-            <Chronometer
-              estimatedTime={currentStep.estimatedTime}
-              onStart={handleChronometerStart}
-              onPause={handlePause}
-              onResume={handleResume}
-              initialTime={initialTime}
-              initialRunning={stepStatus === "IN_PROGRESS"}
-            />
-
             {panelError ? <p className={styles.panelError}>{panelError}</p> : null}
 
-            {hasStarted && (
-              <BottomButton onClick={handleNextStep}>
-                Siguiente
-              </BottomButton>
-            )}
+            <ul className={runStyles.list}>
+              <StepRow
+                key={currentStep.id}
+                step={currentStep}
+                position={stepIndex + 1}
+                total={steps.length}
+                state="active"
+                elapsed={elapsed}
+                started={hasStarted}
+                running={stepStatus === "IN_PROGRESS"}
+                onToggleRunning={handleToggleRunning}
+                onSkip={handleNextStep}
+              />
+
+              {upcoming.map((step, idx) => (
+                <StepRow
+                  key={step.id}
+                  step={step}
+                  position={stepIndex + 2 + idx}
+                  total={steps.length}
+                  state="upcoming"
+                />
+              ))}
+
+              {done.map((step, idx) => (
+                <StepRow
+                  key={step.id}
+                  step={step}
+                  position={idx + 1}
+                  total={steps.length}
+                  state="done"
+                />
+              ))}
+            </ul>
           </>
         )}
       </div>
@@ -542,7 +584,6 @@ const ProcessStepPageWithSuspense = () => (
   <Suspense
     fallback={
       <div className="page">
-        <HeaderXuchil />
         <p>Cargando información del proceso...</p>
       </div>
     }

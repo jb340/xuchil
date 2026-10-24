@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import ImageCard from "@/components/ImageCard";
-import HeaderXuchil from "@/components/HeaderXuchil";
 import styles from "./NewProduction.module.css";
 
 type ProductCategory = {
@@ -83,7 +82,6 @@ const NewProductionPage = () => {
 
   return (
     <div className="page">
-      <HeaderXuchil />
       <h1>¿Qué producto haremos hoy?</h1>
 
       {isLoading ? (

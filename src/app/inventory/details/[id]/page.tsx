@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import XuchilHeader from "@/components/HeaderXuchil";
-import DynamicTable from "@/components/DynamicTable";
-import { movementColumns } from "@/constants/tableData";
+import { useParams, useRouter } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 import styles from "./DetailPage.module.css";
 
 type DetailItem = {
+  itemType: "RAW" | "PRODUCT";
   name: string;
   presentation?: string;
   quantity: number;
@@ -21,8 +20,29 @@ interface UnitOption {
   name: string;
 }
 
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+function fechaCorta(valor: string) {
+  const partes = valor.split("/");
+  if (partes.length !== 3) return valor;
+  const dia = Number(partes[0]);
+  const mes = Number(partes[1]);
+  if (Number.isNaN(dia) || Number.isNaN(mes) || mes < 1 || mes > 12) return valor;
+  return `${dia} ${MESES[mes - 1]}`;
+}
+
+function partirMovimiento(texto: string) {
+  const corte = texto.indexOf(" de ");
+  if (corte === -1) return { tipo: texto, detalle: "" };
+  return {
+    tipo: texto.slice(0, corte),
+    detalle: texto.slice(corte + 4),
+  };
+}
+
 export default function InventoryDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [item, setItem] = useState<DetailItem | null>(null);
   const [movimientos, setMovimientos] = useState<Array<{ movimiento: string; fecha: string }>>([]);
   const [units, setUnits] = useState<UnitOption[]>([]);
@@ -49,12 +69,15 @@ export default function InventoryDetailPage() {
       null;
 
     const mappedItem: DetailItem = {
-      name: data.itemType === "RAW"
-        ? data.rawMaterial?.name ?? "Materia prima"
-        : data.productVariant?.product?.name ?? "Producto",
-      presentation: data.itemType === "RAW"
-        ? undefined
-        : data.productVariant?.name ?? data.productVariant?.presentation ?? "",
+      itemType: data.itemType === "RAW" ? "RAW" : "PRODUCT",
+      name:
+        data.itemType === "RAW"
+          ? data.rawMaterial?.name ?? "Materia prima"
+          : data.productVariant?.product?.name ?? "Producto",
+      presentation:
+        data.itemType === "RAW"
+          ? undefined
+          : data.productVariant?.name ?? data.productVariant?.presentation ?? "",
       quantity: qty,
       units:
         data.rawMaterial?.defaultUnit?.name ||
@@ -67,7 +90,9 @@ export default function InventoryDetailPage() {
 
     const movementRows: Array<{ movimiento: string; fecha: string }> = [];
     for (const lot of mappedItem.lots) {
-      const movementResponse = await fetch(`/api/inventory/lots/${lot.id}/movements`, { credentials: "include" });
+      const movementResponse = await fetch(`/api/inventory/lots/${lot.id}/movements`, {
+        credentials: "include",
+      });
       if (!movementResponse.ok) continue;
       const movements = await movementResponse.json();
       movements.forEach((movement: any) => {
@@ -132,22 +157,40 @@ export default function InventoryDetailPage() {
     }
   };
 
-  if (!item) return <p>Producto no encontrado</p>;
+  if (!item) {
+    return (
+      <div className={styles.wrapper}>
+        <p className={styles.notFound}>Producto no encontrado</p>
+      </div>
+    );
+  }
+
+  const volverA = item.itemType === "PRODUCT" ? "/inventory/products" : "/inventory/raw";
 
   return (
     <div className={styles.wrapper}>
-      <XuchilHeader />
-      <h1 className={styles.title}>
-        {item.name}
-        {item.presentation ? (
-          <>
-            <br />({item.presentation})
-          </>
-        ) : null}
-      </h1>
-      <p className={styles.subtitle}>
-        En inventario: <strong>{item.quantity} {item.units}</strong>
-      </p>
+      <button
+        type="button"
+        className={styles.back}
+        onClick={() => router.push(volverA)}
+      >
+        <ChevronLeft size={18} />
+        Inventario
+      </button>
+
+      <header className={styles.head}>
+        <div className={styles.headText}>
+          <h1 className={styles.title}>{item.name}</h1>
+          {!!item.presentation && (
+            <p className={styles.presentation}>{item.presentation}</p>
+          )}
+        </div>
+
+        <p className={styles.stock}>
+          <span className={styles.stockValue}>{item.quantity}</span>
+          <span className={styles.stockUnit}>{item.units}</span>
+        </p>
+      </header>
 
       <div className={styles.restockBar}>
         <input
@@ -182,7 +225,28 @@ export default function InventoryDetailPage() {
         {restockError ? <p className={styles.restockError}>{restockError}</p> : null}
       </div>
 
-      <DynamicTable columns={movementColumns} data={movimientos} />
+      <p className={styles.sectionLabel}>Movimientos</p>
+
+      <section className={styles.card}>
+        {movimientos.length === 0 ? (
+          <p className={styles.empty}>Sin movimientos registrados</p>
+        ) : (
+          <ul className={styles.list}>
+            {movimientos.map((m, i) => {
+              const { tipo, detalle } = partirMovimiento(m.movimiento);
+              return (
+                <li className={styles.row} key={`${m.fecha}-${i}`}>
+                  <div className={styles.rowText}>
+                    <p className={styles.rowType}>{tipo}</p>
+                    {!!detalle && <p className={styles.rowDetail}>{detalle}</p>}
+                  </div>
+                  <p className={styles.rowDate}>{fechaCorta(m.fecha)}</p>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

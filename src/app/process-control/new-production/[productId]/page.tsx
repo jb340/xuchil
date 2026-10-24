@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import HeaderXuchil from "@/components/HeaderXuchil";
 import ImageCard from "@/components/ImageCard";
 import { ProductVariant } from "@/types/ProductVariant";
 import styles from "./ProductDetail.module.css";
@@ -39,7 +38,6 @@ const ProductDetailPage = () => {
   if (!productVariants || productVariants.length === 0) {
     return (
       <div className="page">
-        <HeaderXuchil />
         <h1>Producto no encontrado o sin variantes</h1>
       </div>
     );
@@ -47,7 +45,6 @@ const ProductDetailPage = () => {
 
   return (
     <div className="page">
-      <HeaderXuchil />
       <h1>Elige el tipo de producto en el que vas a trabajar...</h1>
       <div className={styles.container}>
         {productVariants.map((variant) => (

@@ -2,7 +2,6 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import HeaderXuchil from "@/components/HeaderXuchil";
 import Button from "@/components/Button";
 import BottomButton from "@/components/BottomButton";
 import ProductCard from "@/components/ProductCard";
@@ -90,8 +89,6 @@ const OrderDetailsPage = () => {
           Editar
         </Button>
       </div>
-
-      <HeaderXuchil />
 
       <h1>{`Pedido #${id}`}</h1>
 

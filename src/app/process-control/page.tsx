@@ -2,9 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
-import ImageCard from "@/components/ImageCard";
-import HeaderXuchil from "@/components/HeaderXuchil";
-import Button from "@/components/Button";
+import { Factory, ClipboardList, FileText, ChevronRight, Plus } from "lucide-react";
 import ActiveTaskItem from "@/components/ActiveTaskItem";
 import styles from "./ProcessControl.module.css";
 
@@ -37,18 +35,23 @@ const ProcessControl = () => {
           orderedSteps.length > 0 &&
           orderedSteps.every((step: any) => step.status === "DONE");
         const currentStepIndex = orderedSteps.findIndex(
-          (step: any) => step.status === "IN_PROGRESS" || step.status === "PENDING" || step.status === "BLOCKED"
+          (step: any) =>
+            step.status === "IN_PROGRESS" ||
+            step.status === "PENDING" ||
+            step.status === "BLOCKED"
         );
         const safeIndex = currentStepIndex >= 0 ? currentStepIndex : 0;
         const currentStep = orderedSteps[safeIndex];
         const openRoute = allStepsDone
           ? `/process-control/new-production/${run.productVariant?.productId}/${run.productVariantId}/results?runId=${run.id}`
-          : `/process-control/new-production/${run.productVariant?.productId}/${run.productVariantId}/${safeIndex + 1}`;
+          : `/process-control/new-production/${run.productVariant?.productId}/${run.productVariantId}/${safeIndex + 1}?templateId=${run.processTemplateId}`;
 
         return {
           processRunId: run.id,
           productName: run.productVariant?.name || "Producto",
-          currentStepName: allStepsDone ? "Captura de resultados" : currentStep?.templateStep?.name || "Sin paso",
+          currentStepName: allStepsDone
+            ? "Captura de resultados"
+            : currentStep?.templateStep?.name || "Sin paso",
           currentStepNumber: allStepsDone ? orderedSteps.length : safeIndex + 1,
           totalSteps: orderedSteps.length || 0,
           status: run.status === "PAUSED" ? "PAUSED" : "IN_PROGRESS",
@@ -69,25 +72,34 @@ const ProcessControl = () => {
     loadActiveTasks();
   }, [loadActiveTasks]);
 
+  const secciones = [
+    {
+      id: "nueva-produccion",
+      titulo: "Nueva producción",
+      texto: "Inicia el proceso de un producto",
+      icono: <Factory size={26} />,
+      ruta: "/process-control/new-production",
+    },
+    {
+      id: "tareas-pendientes",
+      titulo: "Tareas pendientes",
+      texto: "Retoma un proceso en curso",
+      icono: <ClipboardList size={26} />,
+      ruta: "/process-control/pending-tasks",
+    },
+    {
+      id: "plantillas-proceso",
+      titulo: "Plantillas de proceso",
+      texto: "Consulta y edita los procesos configurados",
+      icono: <FileText size={26} />,
+      ruta: "/process-control/templates",
+    },
+  ];
+
   return (
-    <div className={`page ${styles.pageWrapper}`}>
-      <div className={styles.newProcessButtonWrapper}>
-        <Button
-          size="small"
-          action="secondary"
-          onClick={() => router.push("/process-control/new-process")}
-        >
-          + Nuevo Proceso
-        </Button>
-      </div>
+    <div className={styles.wrapper}>
+      <h1 className={styles.title}>Control de procesos</h1>
 
-      <HeaderXuchil />
-
-      <div className={styles.headerContainer}>
-        <h1>Control de procesos</h1>
-      </div>
-
-      {/* Active Tasks Panel */}
       {activeTasks.length > 0 && (
         <div className={styles.activeTasksSection}>
           <h2 className={styles.sectionTitle}>Tareas en proceso</h2>
@@ -103,10 +115,33 @@ const ProcessControl = () => {
         </div>
       )}
 
-      <div className={styles.container}>
-        <ImageCard imageSrc="/new-process.svg" text="Nueva producción" type="large" route="/process-control/new-production" />
-        <ImageCard imageSrc="/pending-task.svg" text="Tareas pendientes" type="large" route="/process-control/pending-tasks" />
-        <ImageCard imageSrc="/file.svg" text="Plantillas de proceso" type="large" route="/process-control/templates" />
+      <div className={styles.list}>
+        {secciones.map((seccion) => (
+          <button
+            type="button"
+            key={seccion.id}
+            className={styles.card}
+            onClick={() => router.push(seccion.ruta)}
+          >
+            <span className={styles.cardIcon}>{seccion.icono}</span>
+
+            <span className={styles.cardBody}>
+              <span className={styles.cardTitle}>{seccion.titulo}</span>
+              <span className={styles.cardText}>{seccion.texto}</span>
+            </span>
+
+            <ChevronRight size={18} className={styles.cardChevron} />
+          </button>
+        ))}
+
+        <button
+          type="button"
+          className={styles.addBtn}
+          onClick={() => router.push("/process-control/new-process")}
+        >
+          <Plus size={20} strokeWidth={2.5} />
+          <span>Nuevo proceso</span>
+        </button>
       </div>
     </div>
   );
