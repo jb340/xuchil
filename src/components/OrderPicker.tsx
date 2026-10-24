@@ -28,25 +28,17 @@ const OrderPicker: React.FC<OrderPickerProps> = ({
   onChange,
 }) => {
   const fallbackProductId = products[0]?.id ?? "";
-  const [selectedProductId, setSelectedProductId] = useState(value?.productId ?? fallbackProductId);
-  const [units, setUnits] = useState(value?.quantity ?? 1);
+  const selectedProductId = value?.productId || fallbackProductId;
+  const units = value?.quantity ?? 1;
   const [showModal, setShowModal] = useState(false);
 
-  React.useEffect(() => {
-    if (value) {
-      setSelectedProductId(value.productId);
-      setUnits(value.quantity);
-      return;
-    }
+  const handleProductChange = (product: Product) => {
+    onChange?.({ productId: product.id, quantity: units });
+  };
 
-    if (!selectedProductId && fallbackProductId) {
-      setSelectedProductId(fallbackProductId);
-    }
-  }, [value, selectedProductId, fallbackProductId]);
-
-  React.useEffect(() => {
-    onChange?.({ productId: selectedProductId, quantity: units });
-  }, [selectedProductId, units, onChange]);
+  const handleUnitsChange = (nextUnits: number) => {
+    onChange?.({ productId: selectedProductId, quantity: nextUnits });
+  };
 
   return (
     <>
@@ -55,7 +47,7 @@ const OrderPicker: React.FC<OrderPickerProps> = ({
           <ProductPicker
             products={products}
             valueId={selectedProductId}
-            onChange={(product) => setSelectedProductId(product.id)}
+            onChange={handleProductChange}
           />
 
           <button
@@ -71,7 +63,7 @@ const OrderPicker: React.FC<OrderPickerProps> = ({
 
         <div className={styles.unitsRow}>
           <span className={styles.unitsLabel}>Unidades</span>
-          <QuantityPicker value={units} onChange={setUnits} min={1} />
+          <QuantityPicker value={units} onChange={handleUnitsChange} min={1} />
         </div>
       </div>
 

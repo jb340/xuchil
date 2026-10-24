@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, AlertCircle } from "lucide-react";
 import TextField from "@/components/TextField";
 import DatePicker from "@/components/DatePicker";
 import OrderedProducts from "@/components/OrderedProducts";
 import Button from "@/components/Button";
+import Modal from "@/components/Modal";
 import { Product } from "@/types/Product";
 import { deliveryVariants, availableVariants } from "@/constants/deliveryConfig";
 import styles from "./NewOrder.module.css";
@@ -41,6 +43,9 @@ const NewOrderPage = () => {
     keyof typeof deliveryVariants
   >("mail");
   const [orderItems, setOrderItems] = useState<OrderItemDraft[]>([]);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [serverErrorModal, setServerErrorModal] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const router = useRouter();
 
@@ -58,8 +63,8 @@ const NewOrderPage = () => {
           id: String(variant.id),
           name: variant.product?.name ?? "Producto",
           presentation: variant.name ?? variant.presentation ?? "",
-          image: variant.imageUrl ?? "/globe.svg",
-          quantity: 0,
+          image: variant.imageUrl || "/globe.svg",
+          quantity: Number(variant.inventory?.[0]?.onHand ?? 0),
           units: variant.defaultUnit?.name ?? "",
           categoryId: String(variant.product?.categoryId ?? ""),
           variantId: String(variant.id),
@@ -75,18 +80,20 @@ const NewOrderPage = () => {
   }, []);
 
   const handleSubmit = async () => {
+    setFormError(null);
+
     if (!clientName.trim()) {
-      alert("El nombre del cliente es obligatorio.");
+      setFormError("El nombre del cliente es obligatorio.");
       return;
     }
 
     if (!deliveryDate) {
-      alert("Selecciona una fecha de entrega.");
+      setFormError("Selecciona una fecha de entrega.");
       return;
     }
 
     if (!address.trim()) {
-      alert("La dirección de entrega es obligatoria.");
+      setFormError("La dirección de entrega es obligatoria.");
       return;
     }
 
@@ -97,7 +104,7 @@ const NewOrderPage = () => {
       }))
       .filter((item) => !Number.isNaN(item.productVariantId) && item.quantity > 0);
     if (validItems.length === 0) {
-      alert("Agrega al menos un producto al pedido.");
+      setFormError("Agrega al menos un producto con cantidad mayor a cero.");
       return;
     }
 
@@ -119,6 +126,7 @@ const NewOrderPage = () => {
     };
 
     try {
+      setSubmitting(true);
       const response = await fetch("/api/orders", {
         method: "POST",
         credentials: "include",
@@ -133,14 +141,44 @@ const NewOrderPage = () => {
 
       router.replace("/orders/deliveries");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Error al crear el pedido.");
+      setServerErrorModal(
+        error instanceof Error ? error.message : "Error al crear el pedido."
+      );
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
     <div className="page">
+      <Modal
+        open={Boolean(serverErrorModal)}
+        title="No se pudo crear el pedido"
+        message={serverErrorModal ?? ""}
+        onlyConfirm
+        danger
+        onConfirm={() => setServerErrorModal(null)}
+      />
+
       <div className={styles.card}>
-        <h1 className={styles.title}>Nuevo pedido</h1>
+        <div className={styles.head}>
+          <button
+            type="button"
+            className={styles.backBtn}
+            onClick={() => router.push("/orders/deliveries")}
+            aria-label="Volver a entregas"
+          >
+            <ArrowLeft size={20} strokeWidth={2.2} />
+          </button>
+          <h1 className={styles.title}>Nuevo pedido</h1>
+        </div>
+
+        {formError && (
+          <div className={styles.errorBanner} role="alert">
+            <AlertCircle size={18} strokeWidth={2.2} />
+            <span>{formError}</span>
+          </div>
+        )}
 
         <div className={styles.field}>
           <label className={styles.label} htmlFor="cliente">
@@ -152,7 +190,10 @@ const NewOrderPage = () => {
             className={styles.input}
             placeholder="Nombre del cliente"
             value={clientName}
-            onChange={(e) => setClientName(e.target.value)}
+            onChange={(e) => {
+              setClientName(e.target.value);
+              if (formError) setFormError(null);
+            }}
           />
         </div>
 
@@ -178,7 +219,13 @@ const NewOrderPage = () => {
 
         <div className={styles.field}>
           <span className={styles.label}>Fecha de entrega</span>
-          <DatePicker value={deliveryDate} onChange={setDeliveryDate} />
+          <DatePicker
+            value={deliveryDate}
+            onChange={(date) => {
+              setDeliveryDate(date);
+              if (formError) setFormError(null);
+            }}
+          />
         </div>
 
         <div className={styles.field}>
@@ -190,7 +237,10 @@ const NewOrderPage = () => {
             block
             placeholder="Calle, número, colonia, ciudad"
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
+            onChange={(e) => {
+              setAddress(e.target.value);
+              if (formError) setFormError(null);
+            }}
           />
         </div>
 
@@ -199,12 +249,14 @@ const NewOrderPage = () => {
           {products.length > 0 ? (
             <OrderedProducts products={products} onChange={setOrderItems} />
           ) : (
-            <p>Cargando productos...</p>
+            <p className={styles.loadingText}>Cargando productos...</p>
           )}
         </div>
 
         <div className={styles.submit}>
-          <Button onClick={handleSubmit}>Crear pedido</Button>
+          <Button onClick={handleSubmit} disabled={submitting}>
+            {submitting ? "Creando pedido..." : "Crear pedido"}
+          </Button>
         </div>
       </div>
     </div>

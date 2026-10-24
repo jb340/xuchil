@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import styles from "@/styles/ProductPicker.module.css";
 import { Product } from "@/types/Product";
@@ -15,25 +15,14 @@ const describe = (p: Product) =>
   `${p.presentation} · ${p.quantity} disponibles`;
 
 const ProductPicker: React.FC<ProductPickerProps> = ({ products, valueId, onChange }) => {
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(
-    products[0] ?? null
-  );
   const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    if (products.length === 0) {
-      setSelectedProduct(null);
-      return;
-    }
-
-    const fromValue = valueId ? products.find((p) => p.id === valueId) : null;
-    const resolved = fromValue ?? products[0];
-    setSelectedProduct(resolved);
-    onChange?.(resolved);
-  }, [products, valueId, onChange]);
+  const selectedProduct =
+    (valueId ? products.find((p) => p.id === valueId) : undefined) ??
+    products[0] ??
+    null;
 
   const handleSelectProduct = (product: Product) => {
-    setSelectedProduct(product);
     setIsOpen(false);
     onChange?.(product);
   };
@@ -52,7 +41,7 @@ const ProductPicker: React.FC<ProductPickerProps> = ({ products, valueId, onChan
         aria-expanded={isOpen}
       >
         <img
-          src={selectedProduct.image}
+          src={selectedProduct.image || "/globe.svg"}
           alt=""
           className={styles.productImage}
         />
@@ -79,7 +68,7 @@ const ProductPicker: React.FC<ProductPickerProps> = ({ products, valueId, onChan
               }`}
               onClick={() => handleSelectProduct(p)}
             >
-              <img src={p.image} alt="" className={styles.productImage} />
+              <img src={p.image || "/globe.svg"} alt="" className={styles.productImage} />
               <span className={styles.label}>
                 <span className={styles.name}>{p.name}</span>
                 <span className={styles.meta}>{describe(p)}</span>
